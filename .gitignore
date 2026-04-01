@@ -1,0 +1,11 @@
+# Ignora fisierele temporare de imagine
+*.ppm
+
+# Ignora mediul virtual Python
+.venv/
+venv/
+env/
+
+# Ignora cache-ul Python
+__pycache__/
+*.pyc
