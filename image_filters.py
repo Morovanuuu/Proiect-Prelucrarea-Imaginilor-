@@ -1,25 +1,24 @@
 """
 Modul: image_filters.py
-Descriere: Contine formulele matematice, independenta pentru toate filtrele de procesare a imaginii
-Acest modul nu  depinde de interfata grafica, este pentru testarea si reutilizare
+Descriere: Contine logica matematica independenta pentru toate filtrele de procesare a imaginii.
+Acest modul nu are dependente de interfata grafica (fara OpenCV/Pillow), facilitand testarea si reutilizarea.
 """
+
+import math
+import random
+from collections import deque
 
 
 def clamp(val):
     """
-    Se asigura ca valoarea unui pixel ramane strict in intervalul valid [0, 255]
-    Se preia o valoare calculata (care poate iesi din limite) si o trunchiaza
+    Asigura ca valoarea unui pixel ramane strict in intervalul valid [0, 255].
+    Preia o valoare calculata (care poate iesi din limite) si o trunchiaza.
     """
     return max(0, min(255, int(val)))
 
 
 def get_grayscale(m):
-    """
-    Se converteste matricea RGB in tonuri de gri folosind cele 3 metode din laborator:
-    1. Media: Media aritmetica simpla (R + G + B) / 3
-    2. Luma (NTSC): Metoda ponderata  mai mare la culoarea verde (0.299*R + 0.587*G + 0.114*B)
-    3. Mid/Max (Desaturare): Media dintre canalul cel mai intens si cel mai slab
-    """
+    """Conversie RGB in tonuri de gri (Medie, Luma, Mid/Max)."""
     h, w = len(m), len(m[0])
     res1, res2, res3 = [], [], []
     for y in range(h):
@@ -39,10 +38,7 @@ def get_grayscale(m):
 
 
 def get_cmy(m):
-    """
-    Se transforma spatiul aditiv RGB in spatiul substractiv CMY (Cyan, Magenta, Yellow)
-    Formula: C = 255 - R, M = 255 - G, Y = 255 - B
-    """
+    """Transforma spatiul aditiv RGB in spatiul substractiv CMY."""
     h, w = len(m), len(m[0])
     res_cmy = []
     for y in range(h):
@@ -55,11 +51,7 @@ def get_cmy(m):
 
 
 def get_yuv(m):
-    """
-    Conversie RGB -> YUV
-    Se separa informatia de luminozitate (Y) de informatia de culoare/crominanta (U si V)
-    Valorile U si V sunt scalate si deplasate (+128) pentru a fi vizibile ca imagini pe 8 biti
-    """
+    """Conversie RGB -> YUV (luminozitate si crominanta)."""
     h, w = len(m), len(m[0])
     res_y, res_u, res_v = [], [], []
     for y in range(h):
@@ -80,10 +72,7 @@ def get_yuv(m):
 
 
 def get_ycbcr(m):
-    """
-    Conversie RGB -> YCbCr
-    Y = Luminanta, Cb = Diferenta fata de Albastru, Cr = Diferenta fata de Rosu
-    """
+    """Conversie RGB -> YCbCr (folosita in compresia JPEG)."""
     h, w = len(m), len(m[0])
     res_y, res_cb, res_cr = [], [], []
     for y in range(h):
@@ -104,9 +93,7 @@ def get_ycbcr(m):
 
 
 def get_hsv(m):
-    """
-    Conversie RGB -> HSV (Hue/Nuanta, Saturation/Saturatie, Value/Valoare)
-    """
+    """Conversie RGB -> HSV (Hue, Saturation, Value)."""
     h, w = len(m), len(m[0])
     res_h, res_s, res_v = [], [], []
     for y in range(h):
@@ -119,7 +106,6 @@ def get_hsv(m):
             diff = cmax - cmin
             V = cmax
             S = diff / cmax if cmax != 0 else 0
-
             if diff == 0:
                 H = 0
             elif cmax == r_norm:
@@ -128,7 +114,6 @@ def get_hsv(m):
                 H = (60 * ((b_norm - r_norm) / diff) + 120) % 360
             elif cmax == b_norm:
                 H = (60 * ((r_norm - g_norm) / diff) + 240) % 360
-
             H_val, S_val, V_val = int(H * 255 / 360), int(S * 255), int(V * 255)
             r_h.append([H_val, H_val, H_val])
             r_s.append([S_val, S_val, S_val])
@@ -140,10 +125,7 @@ def get_hsv(m):
 
 
 def get_invers(m):
-    """
-    Se aplica filtrul de imagine negativa (inversare culori)
-    Se returneaza negativul global, precum si negativul calculat separat pe fiecare canal RGB
-    """
+    """Aplica filtrul de imagine negativa (inversare culori)."""
     h, w = len(m), len(m[0])
     res_inv, res_r, res_g, res_b = [], [], [], []
     for y in range(h):
@@ -163,10 +145,7 @@ def get_invers(m):
 
 
 def get_binarizare(m, prag=127):
-    """
-    Binarizarea imaginii (Thresholding)
-    Se transforma toti pixelii in negru (0) sau alb pur (255) in functie de o valoare
-    """
+    """Binarizarea imaginii (Thresholding). Alb pur sau negru pur."""
     h, w = len(m), len(m[0])
     res_bin = []
     for y in range(h):
@@ -180,10 +159,7 @@ def get_binarizare(m, prag=127):
 
 
 def get_histogram(m):
-    """
-    Se calculeaza histograma imaginii (frecventa de aparitie a fiecarei intensitati luminoase, 0-255)
-    Se returneaza o matrice grafica reprezentand barele histogramei scalate
-    """
+    """Calculeaza histograma imaginii (0-255)."""
     h, w = len(m), len(m[0])
     hist = [0] * 256
     for y in range(h):
@@ -200,12 +176,7 @@ def get_histogram(m):
 
 
 def get_moments1(m):
-    """
-    Se calculeaza momentele de ordin 1 (M00, M10, M01)
-    Aceste momente sunt folosite pentru a determina Aria formei (M00) si
-    coordonatele Centrului de Masa
-    Se returneaza si matricea cu centrul marcat vizual
-    """
+    """Calculeaza momentele de ordin 1 (M00, M10, M01) si centrul de masa."""
     h, w = len(m), len(m[0])
     M00, M10, M01 = 0, 0, 0
     for y in range(h):
@@ -225,7 +196,6 @@ def get_moments1(m):
         for x in range(w): row.append(list(m[y][x]))
         res_moments.append(row)
 
-    # Se deseneaza o cruce rosie pe centrul de masa
     for i in range(-15, 16):
         if 0 <= xc + i < w: res_moments[yc][xc + i] = [255, 85, 85]
         if 0 <= yc + i < h: res_moments[yc + i][xc] = [255, 85, 85]
@@ -233,11 +203,7 @@ def get_moments1(m):
 
 
 def get_moments2(m):
-    """
-    Se calculeaza momentele spatiale de ordinul 2 (M20, M02, M11)
-    Acestea descriu distributia masei/pixelilor fata de axele de coordonate
-    (momente de inertie) si sunt esentiale pentru calculul orientarii obiectului
-    """
+    """Calculeaza momentele spatiale de ordinul 2."""
     h, w = len(m), len(m[0])
     M20, M02, M11 = 0, 0, 0
     for y in range(h):
@@ -251,9 +217,7 @@ def get_moments2(m):
 
 
 def get_covariance(m):
-    """
-    Se extrage matricea de covarianta pe baza momentelor centrale de ordinul 2
-    """
+    """Extrage matricea de covarianta."""
     h, w = len(m), len(m[0])
     M00, M10, M01 = 0, 0, 0
     for y in range(h):
@@ -276,10 +240,7 @@ def get_covariance(m):
 
 
 def get_projections(m):
-    """
-    Se calculeaza proiectiile de intensitate pe axa orizontala
-    si verticala;  Rezultatul este un grafic de intensitate
-    """
+    """Calculeaza proiectiile de intensitate pe axa orizontala si verticala."""
     h, w = len(m), len(m[0])
     proj_h, proj_v = [0] * h, [0] * w
     for y in range(h):
@@ -301,3 +262,169 @@ def get_projections(m):
         for y in range(200 - bar_len, 200): res_v[y][x] = [80, 250, 123]
 
     return res_h, res_v
+
+
+# =========================================================
+# FILTRE LABORATOR 5 (Sobel si Etichetare BFS)
+# =========================================================
+
+def get_sobel(m):
+    """
+    Aplica operatorul Sobel pentru a detecta muchiile si a calcula
+    directia de alungire (orientarea gradientului maxim).
+    Returneaza matricea cu muchiile evidentiate si unghiul maxim.
+    """
+    h, w = len(m), len(m[0])
+    # Initializam imaginea rezultata cu negru (0, 0, 0)
+    res_sobel = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    max_mag = 0
+    orientation_rad = 0
+
+    # Functie rapida pentru a calcula intensitatea (gri) a unui pixel
+    def intensity(x, y):
+        r, g, b = m[y][x]
+        return (r + g + b) // 3
+
+    # Ignoram marginile pentru a nu iesi din matrice
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            # Gradient pe X (Detecteaza linii verticale)
+            gx = (intensity(x + 1, y - 1) + 2 * intensity(x + 1, y) + intensity(x + 1, y + 1)) - \
+                 (intensity(x - 1, y - 1) + 2 * intensity(x - 1, y) + intensity(x - 1, y + 1))
+
+            # Gradient pe Y (Detecteaza linii orizontale)
+            gy = (intensity(x - 1, y + 1) + 2 * intensity(x, y + 1) + intensity(x + 1, y + 1)) - \
+                 (intensity(x - 1, y - 1) + 2 * intensity(x, y - 1) + intensity(x + 1, y - 1))
+
+            # Magnitudinea gradientului
+            mag = math.sqrt(gx ** 2 + gy ** 2)
+
+            # Salvam valoarea pentru imaginea de preview (limitata la 255)
+            val = clamp(mag)
+            res_sobel[y][x] = [val, val, val]
+
+            # Cautam magnitudinea maxima pentru a gasi orientarea
+            if mag > max_mag:
+                max_mag = mag
+                orientation_rad = math.atan2(gy, gx)
+
+    # Convertim radianii in grade
+    orientation_deg = math.degrees(orientation_rad)
+
+    return res_sobel, orientation_deg, max_mag
+
+
+def get_connected_components(m, prag=127):
+    """
+    Functie care primeste o imagine binarizata/grayscale si gaseste obiectele conexe.
+    PASUL 1: Creeaza matricea de etichete folosind algoritmul BFS (fara OpenCV).
+    PASUL 2: Asociaza fiecarei etichete (fiecarui obiect) o culoare RGB unica.
+    PASUL 3: Returneaza matricea finala colorata gata de afisare.
+    """
+    h, w = len(m), len(m[0])
+
+    # Initializam matricea de etichete cu 0 (0 inseamna neetichetat / fundal)
+    labels = [[0 for _ in range(w)] for _ in range(h)]
+    numar_obiecte = 0
+
+    # Functie interna pentru a verifica daca un pixel face parte dintr-un obiect (e inchis la culoare)
+    def este_obiect(x, y):
+        r, g, b = m[y][x]
+        intensitate = (r + g + b) // 3
+        return intensitate < prag
+
+    # PARTEA 1: ETICHETAREA (Breadth-First Search)
+    for y in range(h):
+        for x in range(w):
+            # Daca pixelul e un obiect si inca nu i-am dat o eticheta
+            if labels[y][x] == 0 and este_obiect(x, y):
+                # Am gasit o forma noua, ii dam un numar nou (1, 2, 3...)
+                numar_obiecte += 1
+                labels[y][x] = numar_obiecte
+
+                # Folosim deque pentru o coada eficienta (mai rapida decat o lista simpla)
+                coada = deque([(x, y)])
+
+                while coada:
+                    cx, cy = coada.popleft()
+
+                    # Verificam toti cei 8 vecini din jurul pixelului curent
+                    for dy in [-1, 0, 1]:
+                        for dx in [-1, 0, 1]:
+                            if dx == 0 and dy == 0:
+                                continue  # Sarim peste el insusi
+
+                            nx, ny = cx + dx, cy + dy
+
+                            # Daca vecinul e in interiorul imaginii
+                            if 0 <= nx < w and 0 <= ny < h:
+                                # Daca vecinul e obiect si nu are eticheta inca, il adaugam in coada
+                                if labels[ny][nx] == 0 and este_obiect(nx, ny):
+                                    labels[ny][nx] = numar_obiecte
+                                    coada.append((nx, ny))
+
+    # PARTEA 2: COLORAREA OBIECTELOR
+    # Cream un dictionar pentru culori. Cheia este eticheta, valoarea e o lista [R, G, B]
+    culori_obiecte = {}
+    for i in range(1, numar_obiecte + 1):
+        # Generam o culoare aleatoare pentru fiecare obiect (evitam albul)
+        culori_obiecte[i] = [random.randint(20, 230), random.randint(20, 230), random.randint(20, 230)]
+
+    # Construim imaginea finala colorata (initializata cu Alb pentru fundal)
+    imagine_colorata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
+
+    # Pictam imaginea finala conform etichetelor
+    for y in range(h):
+        for x in range(w):
+            eticheta_curenta = labels[y][x]
+            if eticheta_curenta > 0:
+                imagine_colorata[y][x] = culori_obiecte[eticheta_curenta]
+
+    return imagine_colorata, numar_obiecte
+
+
+def get_isolated_object(m, target_label, prag=127):
+    """
+    Ruleaza etichetarea BFS si izoleaza un singur obiect cerut de utilizator (target_label).
+    Obiectul selectat este colorat cu Rosu, iar restul imaginii ramane alb (fundal).
+    """
+    h, w = len(m), len(m[0])
+    labels = [[0 for _ in range(w)] for _ in range(h)]
+    numar_obiecte = 0
+
+    def este_obiect(x, y):
+        r, g, b = m[y][x]
+        intensitate = (r + g + b) // 3
+        return intensitate < prag
+
+    # Parcurgem imaginea cu BFS la fel ca la etichetarea normala
+    for y in range(h):
+        for x in range(w):
+            if labels[y][x] == 0 and este_obiect(x, y):
+                numar_obiecte += 1
+                labels[y][x] = numar_obiecte
+                coada = deque([(x, y)])
+
+                while coada:
+                    cx, cy = coada.popleft()
+                    for dy in [-1, 0, 1]:
+                        for dx in [-1, 0, 1]:
+                            if dx == 0 and dy == 0: continue
+                            nx, ny = cx + dx, cy + dy
+
+                            if 0 <= nx < w and 0 <= ny < h:
+                                if labels[ny][nx] == 0 and este_obiect(nx, ny):
+                                    labels[ny][nx] = numar_obiecte
+                                    coada.append((nx, ny))
+
+    # Construim o imagine complet alba
+    imagine_izolata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
+
+    # Coloram DOAR pixelii care apartin etichetei cautate (target_label)
+    for y in range(h):
+        for x in range(w):
+            if labels[y][x] == target_label:
+                imagine_izolata[y][x] = [255, 50, 50]  # Rosu aprins pentru vizibilitate
+
+    return imagine_izolata

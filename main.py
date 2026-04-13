@@ -1,7 +1,6 @@
 """
 Modul: main.py
 Descriere: Se intra in aplicatie
-Aici se  initializeaza fereastra principala Tkinter si porneste aplicatia.
 """
 
 import tkinter as tk
