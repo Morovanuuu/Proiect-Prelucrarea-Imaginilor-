@@ -99,7 +99,13 @@ class ImageApp:
             menu_analiza.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Analiza & Statistica", menu=menu_analiza)
 
-        # Meniu Nou pentru Operatii Morfologice (Lab 6)
+        # Meniu Nou pentru Filtre Spatiale (Lab 7)
+        menu_spatiale = tk.Menu(self.menubar, tearoff=0)
+        for f in ["Mediere (Blur)", "Median (Zgomot)", "Minim (Intunecare)", "Maxim (Luminare)",
+                  "Accentuare (Sharpen)"]:
+            menu_spatiale.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
+        self.menubar.add_cascade(label="Filtre Spatiale", menu=menu_spatiale)
+
         menu_morfologie = tk.Menu(self.menubar, tearoff=0)
         for f in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
             menu_morfologie.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
@@ -219,11 +225,36 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_hist.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Histograma", 0, 0)
 
-        # LABORATOR 6
         elif filter_name == "Egalizare Histograma":
             res = filters.get_egalizare_histograma(m)
             self.tk_g1 = self.matrix_to_tk(res, "t_eq.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Egalizare Histograma", 0, 0)
+
+        # LAB 7: Filtre Spatiale
+        elif filter_name == "Mediere (Blur)":
+            res = filters.get_mediere(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_med.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Filtru Mediere", 0, 0)
+
+        elif filter_name == "Median (Zgomot)":
+            res = filters.get_median(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_median.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Filtru Median", 0, 0)
+
+        elif filter_name == "Minim (Intunecare)":
+            res = filters.get_minim(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_min.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Filtru Minim", 0, 0)
+
+        elif filter_name == "Maxim (Luminare)":
+            res = filters.get_maxim(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_max.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Filtru Maxim", 0, 0)
+
+        elif filter_name == "Accentuare (Sharpen)":
+            res = filters.get_accentuare(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_sharp.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Accentuare (Sharpen)", 0, 0)
 
         elif filter_name in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
             iters = simpledialog.askinteger("Operatie Morfologica",
@@ -342,7 +373,18 @@ class ImageApp:
             elif sel == "Egalizare Histograma":
                 write_bmp(filters.get_egalizare_histograma(m), base_path)
 
-            # Salvare Operatii Morfologice (Folosind iteratiile alese de utilizator)
+            # LAB 7 Salvari
+            elif sel == "Mediere (Blur)":
+                write_bmp(filters.get_mediere(m), base_path)
+            elif sel == "Median (Zgomot)":
+                write_bmp(filters.get_median(m), base_path)
+            elif sel == "Minim (Intunecare)":
+                write_bmp(filters.get_minim(m), base_path)
+            elif sel == "Maxim (Luminare)":
+                write_bmp(filters.get_maxim(m), base_path)
+            elif sel == "Accentuare (Sharpen)":
+                write_bmp(filters.get_accentuare(m), base_path)
+
             elif sel == "Dilatare":
                 write_bmp(filters.get_dilatare(m, self.morph_iterations), base_path)
             elif sel == "Eroziune":

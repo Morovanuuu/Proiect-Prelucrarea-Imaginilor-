@@ -6,6 +6,7 @@ Descriere: Contine logica matematica independenta pentru toate filtrele de proce
 import math
 import random
 from collections import deque
+import numpy as np
 
 
 def clamp(val):
@@ -364,20 +365,17 @@ def get_isolated_object(m, target_label, prag=127):
     return imagine_izolata
 
 
-# =========================================================
-# FILTRE LABORATOR 6 (Egalizare Histograma si Morfologie)
-# =========================================================
+# FILTRE  (Egalizare Histograma si Morfologie)
+
 
 def get_egalizare_histograma(m):
     """
     Egalizarea histogramei pentru accentuarea contrastului.
-    Tansforma o imagine 'stearsa' intr-una cu contrast optimizat.
     """
     h, w = len(m), len(m[0])
     hist = [0] * 256
     gray_m = [[0] * w for _ in range(h)]
 
-    # 1. Calculam histograma imaginii originale (convertita in gri)
     for y in range(h):
         for x in range(w):
             r, g, b = m[y][x]
@@ -385,22 +383,18 @@ def get_egalizare_histograma(m):
             gray_m[y][x] = gray
             hist[gray] += 1
 
-    # 2. Construim histograma cumulativa (hc)
     hc = [0] * 256
     hc[0] = hist[0]
     for i in range(1, 256):
         hc[i] = hc[i - 1] + hist[i]
 
-    # Extragem valoarea minima din hc pentru formula (hc_min = hc[0])
     hc_min = hc[0]
     total_pixels = w * h
 
-    # 3. Aplicam formula matematica (functia de transfer T)
     res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
     for y in range(h):
         for x in range(w):
             nivel_vechi = gray_m[y][x]
-            # Formula T(x) din laborator
             nivel_nou = int(((hc[nivel_vechi] - hc_min) / (total_pixels - hc_min)) * 255)
             nivel_nou = clamp(nivel_nou)
             res[y][x] = [nivel_nou, nivel_nou, nivel_nou]
@@ -411,11 +405,8 @@ def get_egalizare_histograma(m):
 def _apply_morphology(m, op_type, iterations=1, prag=127):
     """
     Functie de baza comuna pentru operatiile morfologice.
-    Foloseste un nucleu standard de 3x3.
-    Presupunem ca Obiectul = NEGRU (0) si Fundalul = ALB (255)
     """
     h, w = len(m), len(m[0])
-    # Cream o matrice temporara binarizata strict (0 si 255)
     current = [[0] * w for _ in range(h)]
     for y in range(h):
         for x in range(w):
@@ -433,40 +424,126 @@ def _apply_morphology(m, op_type, iterations=1, prag=127):
                         if 0 <= nx < w and 0 <= ny < h:
                             neighbors.append(current[ny][nx])
                         else:
-                            # Consideram marginile ca fiind fundal (alb)
                             neighbors.append(255)
 
                 if op_type == 'dilatare':
-                    # Ingrosam pixelii negri -> luam minimul
                     temp[y][x] = min(neighbors)
                 elif op_type == 'eroziune':
-                    # Subtiem pixelii negri -> luam maximul
                     temp[y][x] = max(neighbors)
 
         current = temp
 
-    # Reconversie la matrice de format [R, G, B]
     res = [[[val, val, val] for val in row] for row in current]
     return res
 
 
 def get_dilatare(m, iteratii):
-    """Mareste / Ingroasa aria obiectelor negre."""
     return _apply_morphology(m, 'dilatare', iteratii)
 
 
 def get_eroziune(m, iteratii):
-    """Micsoreaza / Subtiaza aria obiectelor negre."""
     return _apply_morphology(m, 'eroziune', iteratii)
 
 
 def get_deschidere(m, iteratii):
-    """Deschidere = Eroziune urmata de Dilatare. Elimina zgomotul mic."""
     eroded = _apply_morphology(m, 'eroziune', iteratii)
     return _apply_morphology(eroded, 'dilatare', iteratii)
 
 
 def get_inchidere(m, iteratii):
-    """Inchidere = Dilatare urmata de Eroziune. Acopera gaurile din obiecte."""
     dilated = _apply_morphology(m, 'dilatare', iteratii)
     return _apply_morphology(dilated, 'eroziune', iteratii)
+
+
+
+# FILTRE  (Filtre Spatiale 3x3 si DFT)
+
+def _apply_3x3_window(m, func_type):
+    h, w = len(m), len(m[0])
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    for y in range(h):
+        for x in range(w):
+            if y == 0 or y == h - 1 or x == 0 or x == w - 1:
+                res[y][x] = m[y][x]
+                continue
+
+            r_vals, g_vals, b_vals = [], [], []
+
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    r, g, b = m[y + dy][x + dx]
+                    r_vals.append(r)
+                    g_vals.append(g)
+                    b_vals.append(b)
+
+            if func_type == 'mediere':
+                res[y][x] = [sum(r_vals) // 9, sum(g_vals) // 9, sum(b_vals) // 9]
+
+            elif func_type == 'median':
+                r_vals.sort();
+                g_vals.sort();
+                b_vals.sort()
+                res[y][x] = [r_vals[4], g_vals[4], b_vals[4]]
+
+            elif func_type == 'minim':
+                res[y][x] = [min(r_vals), min(g_vals), min(b_vals)]
+
+            elif func_type == 'maxim':
+                res[y][x] = [max(r_vals), max(g_vals), max(b_vals)]
+
+    return res
+
+
+def get_mediere(m):
+    return _apply_3x3_window(m, 'mediere')
+
+
+def get_median(m):
+    return _apply_3x3_window(m, 'median')
+
+
+def get_minim(m):
+    return _apply_3x3_window(m, 'minim')
+
+
+def get_maxim(m):
+    return _apply_3x3_window(m, 'maxim')
+
+
+def get_accentuare(m):
+    h, w = len(m), len(m[0])
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    kernel = [
+        [0.0, -0.25, 0.0],
+        [-0.25, 1.0, -0.25],
+        [0.0, -0.25, 0.0]
+    ]
+
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            sum_r, sum_g, sum_b = 0.0, 0.0, 0.0
+
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    r, g, b = m[y + dy][x + dx]
+                    weight = kernel[dy + 1][dx + 1]
+                    sum_r += weight * r
+                    sum_g += weight * g
+                    sum_b += weight * b
+
+            orig_r, orig_g, orig_b = m[y][x]
+            new_r = clamp(orig_r + 0.6 * sum_r)
+            new_g = clamp(orig_g + 0.6 * sum_g)
+            new_b = clamp(orig_b + 0.6 * sum_b)
+
+            res[y][x] = [new_r, new_g, new_b]
+
+    for x in range(w):
+        res[0][x], res[h - 1][x] = m[0][x], m[h - 1][x]
+    for y in range(h):
+        res[y][0], res[y][w - 1] = m[y][0], m[y][w - 1]
+
+    return res
+
