@@ -1,7 +1,6 @@
 """
 Modul: image_filters.py
 Descriere: Contine logica matematica independenta pentru toate filtrele de procesare a imaginii.
-Acest modul nu are dependente de interfata grafica (fara OpenCV/Pillow), facilitand testarea si reutilizarea.
 """
 
 import math
@@ -10,10 +9,7 @@ from collections import deque
 
 
 def clamp(val):
-    """
-    Asigura ca valoarea unui pixel ramane strict in intervalul valid [0, 255].
-    Preia o valoare calculata (care poate iesi din limite) si o trunchiaza.
-    """
+    """Asigura ca valoarea unui pixel ramane strict in intervalul valid [0, 255]."""
     return max(0, min(255, int(val)))
 
 
@@ -188,7 +184,6 @@ def get_moments1(m):
             M01 += y * I
 
     if M00 == 0: return None, 0, 0, 0, 0, 0
-
     xc, yc = int(M10 / M00), int(M01 / M00)
     res_moments = []
     for y in range(h):
@@ -264,131 +259,36 @@ def get_projections(m):
     return res_h, res_v
 
 
-# =========================================================
-# FILTRE LABORATOR 5 (Sobel si Etichetare BFS)
-# =========================================================
-
 def get_sobel(m):
-    """
-    Aplica operatorul Sobel pentru a detecta muchiile si a calcula
-    directia de alungire (orientarea gradientului maxim).
-    Returneaza matricea cu muchiile evidentiate si unghiul maxim.
-    """
+    """Aplica operatorul Sobel pentru a detecta muchiile."""
     h, w = len(m), len(m[0])
-    # Initializam imaginea rezultata cu negru (0, 0, 0)
     res_sobel = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
-
     max_mag = 0
     orientation_rad = 0
 
-    # Functie rapida pentru a calcula intensitatea (gri) a unui pixel
     def intensity(x, y):
         r, g, b = m[y][x]
         return (r + g + b) // 3
 
-    # Ignoram marginile pentru a nu iesi din matrice
     for y in range(1, h - 1):
         for x in range(1, w - 1):
-            # Gradient pe X (Detecteaza linii verticale)
             gx = (intensity(x + 1, y - 1) + 2 * intensity(x + 1, y) + intensity(x + 1, y + 1)) - \
                  (intensity(x - 1, y - 1) + 2 * intensity(x - 1, y) + intensity(x - 1, y + 1))
-
-            # Gradient pe Y (Detecteaza linii orizontale)
             gy = (intensity(x - 1, y + 1) + 2 * intensity(x, y + 1) + intensity(x + 1, y + 1)) - \
                  (intensity(x - 1, y - 1) + 2 * intensity(x, y - 1) + intensity(x + 1, y - 1))
-
-            # Magnitudinea gradientului
             mag = math.sqrt(gx ** 2 + gy ** 2)
-
-            # Salvam valoarea pentru imaginea de preview (limitata la 255)
             val = clamp(mag)
             res_sobel[y][x] = [val, val, val]
-
-            # Cautam magnitudinea maxima pentru a gasi orientarea
             if mag > max_mag:
                 max_mag = mag
                 orientation_rad = math.atan2(gy, gx)
 
-    # Convertim radianii in grade
     orientation_deg = math.degrees(orientation_rad)
-
     return res_sobel, orientation_deg, max_mag
 
 
 def get_connected_components(m, prag=127):
-    """
-    Functie care primeste o imagine binarizata/grayscale si gaseste obiectele conexe.
-    PASUL 1: Creeaza matricea de etichete folosind algoritmul BFS (fara OpenCV).
-    PASUL 2: Asociaza fiecarei etichete (fiecarui obiect) o culoare RGB unica.
-    PASUL 3: Returneaza matricea finala colorata gata de afisare.
-    """
-    h, w = len(m), len(m[0])
-
-    # Initializam matricea de etichete cu 0 (0 inseamna neetichetat / fundal)
-    labels = [[0 for _ in range(w)] for _ in range(h)]
-    numar_obiecte = 0
-
-    # Functie interna pentru a verifica daca un pixel face parte dintr-un obiect (e inchis la culoare)
-    def este_obiect(x, y):
-        r, g, b = m[y][x]
-        intensitate = (r + g + b) // 3
-        return intensitate < prag
-
-    # PARTEA 1: ETICHETAREA (Breadth-First Search)
-    for y in range(h):
-        for x in range(w):
-            # Daca pixelul e un obiect si inca nu i-am dat o eticheta
-            if labels[y][x] == 0 and este_obiect(x, y):
-                # Am gasit o forma noua, ii dam un numar nou (1, 2, 3...)
-                numar_obiecte += 1
-                labels[y][x] = numar_obiecte
-
-                # Folosim deque pentru o coada eficienta (mai rapida decat o lista simpla)
-                coada = deque([(x, y)])
-
-                while coada:
-                    cx, cy = coada.popleft()
-
-                    # Verificam toti cei 8 vecini din jurul pixelului curent
-                    for dy in [-1, 0, 1]:
-                        for dx in [-1, 0, 1]:
-                            if dx == 0 and dy == 0:
-                                continue  # Sarim peste el insusi
-
-                            nx, ny = cx + dx, cy + dy
-
-                            # Daca vecinul e in interiorul imaginii
-                            if 0 <= nx < w and 0 <= ny < h:
-                                # Daca vecinul e obiect si nu are eticheta inca, il adaugam in coada
-                                if labels[ny][nx] == 0 and este_obiect(nx, ny):
-                                    labels[ny][nx] = numar_obiecte
-                                    coada.append((nx, ny))
-
-    # PARTEA 2: COLORAREA OBIECTELOR
-    # Cream un dictionar pentru culori. Cheia este eticheta, valoarea e o lista [R, G, B]
-    culori_obiecte = {}
-    for i in range(1, numar_obiecte + 1):
-        # Generam o culoare aleatoare pentru fiecare obiect (evitam albul)
-        culori_obiecte[i] = [random.randint(20, 230), random.randint(20, 230), random.randint(20, 230)]
-
-    # Construim imaginea finala colorata (initializata cu Alb pentru fundal)
-    imagine_colorata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
-
-    # Pictam imaginea finala conform etichetelor
-    for y in range(h):
-        for x in range(w):
-            eticheta_curenta = labels[y][x]
-            if eticheta_curenta > 0:
-                imagine_colorata[y][x] = culori_obiecte[eticheta_curenta]
-
-    return imagine_colorata, numar_obiecte
-
-
-def get_isolated_object(m, target_label, prag=127):
-    """
-    Ruleaza etichetarea BFS si izoleaza un singur obiect cerut de utilizator (target_label).
-    Obiectul selectat este colorat cu Rosu, iar restul imaginii ramane alb (fundal).
-    """
+    """Etichetarea componentelor conexe (BFS)."""
     h, w = len(m), len(m[0])
     labels = [[0 for _ in range(w)] for _ in range(h)]
     numar_obiecte = 0
@@ -398,33 +298,175 @@ def get_isolated_object(m, target_label, prag=127):
         intensitate = (r + g + b) // 3
         return intensitate < prag
 
-    # Parcurgem imaginea cu BFS la fel ca la etichetarea normala
     for y in range(h):
         for x in range(w):
             if labels[y][x] == 0 and este_obiect(x, y):
                 numar_obiecte += 1
                 labels[y][x] = numar_obiecte
                 coada = deque([(x, y)])
-
                 while coada:
                     cx, cy = coada.popleft()
                     for dy in [-1, 0, 1]:
                         for dx in [-1, 0, 1]:
                             if dx == 0 and dy == 0: continue
                             nx, ny = cx + dx, cy + dy
-
                             if 0 <= nx < w and 0 <= ny < h:
                                 if labels[ny][nx] == 0 and este_obiect(nx, ny):
                                     labels[ny][nx] = numar_obiecte
                                     coada.append((nx, ny))
 
-    # Construim o imagine complet alba
-    imagine_izolata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
+    culori_obiecte = {}
+    for i in range(1, numar_obiecte + 1):
+        culori_obiecte[i] = [random.randint(20, 230), random.randint(20, 230), random.randint(20, 230)]
 
-    # Coloram DOAR pixelii care apartin etichetei cautate (target_label)
+    imagine_colorata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            eticheta_curenta = labels[y][x]
+            if eticheta_curenta > 0:
+                imagine_colorata[y][x] = culori_obiecte[eticheta_curenta]
+    return imagine_colorata, numar_obiecte
+
+
+def get_isolated_object(m, target_label, prag=127):
+    """Izoleaza un singur obiect cerut de utilizator."""
+    h, w = len(m), len(m[0])
+    labels = [[0 for _ in range(w)] for _ in range(h)]
+    numar_obiecte = 0
+
+    def este_obiect(x, y):
+        r, g, b = m[y][x]
+        intensitate = (r + g + b) // 3
+        return intensitate < prag
+
+    for y in range(h):
+        for x in range(w):
+            if labels[y][x] == 0 and este_obiect(x, y):
+                numar_obiecte += 1
+                labels[y][x] = numar_obiecte
+                coada = deque([(x, y)])
+                while coada:
+                    cx, cy = coada.popleft()
+                    for dy in [-1, 0, 1]:
+                        for dx in [-1, 0, 1]:
+                            if dx == 0 and dy == 0: continue
+                            nx, ny = cx + dx, cy + dy
+                            if 0 <= nx < w and 0 <= ny < h:
+                                if labels[ny][nx] == 0 and este_obiect(nx, ny):
+                                    labels[ny][nx] = numar_obiecte
+                                    coada.append((nx, ny))
+
+    imagine_izolata = [[[255, 255, 255] for _ in range(w)] for _ in range(h)]
     for y in range(h):
         for x in range(w):
             if labels[y][x] == target_label:
-                imagine_izolata[y][x] = [255, 50, 50]  # Rosu aprins pentru vizibilitate
-
+                imagine_izolata[y][x] = [255, 50, 50]
     return imagine_izolata
+
+
+# =========================================================
+# FILTRE LABORATOR 6 (Egalizare Histograma si Morfologie)
+# =========================================================
+
+def get_egalizare_histograma(m):
+    """
+    Egalizarea histogramei pentru accentuarea contrastului.
+    Tansforma o imagine 'stearsa' intr-una cu contrast optimizat.
+    """
+    h, w = len(m), len(m[0])
+    hist = [0] * 256
+    gray_m = [[0] * w for _ in range(h)]
+
+    # 1. Calculam histograma imaginii originale (convertita in gri)
+    for y in range(h):
+        for x in range(w):
+            r, g, b = m[y][x]
+            gray = (r + g + b) // 3
+            gray_m[y][x] = gray
+            hist[gray] += 1
+
+    # 2. Construim histograma cumulativa (hc)
+    hc = [0] * 256
+    hc[0] = hist[0]
+    for i in range(1, 256):
+        hc[i] = hc[i - 1] + hist[i]
+
+    # Extragem valoarea minima din hc pentru formula (hc_min = hc[0])
+    hc_min = hc[0]
+    total_pixels = w * h
+
+    # 3. Aplicam formula matematica (functia de transfer T)
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            nivel_vechi = gray_m[y][x]
+            # Formula T(x) din laborator
+            nivel_nou = int(((hc[nivel_vechi] - hc_min) / (total_pixels - hc_min)) * 255)
+            nivel_nou = clamp(nivel_nou)
+            res[y][x] = [nivel_nou, nivel_nou, nivel_nou]
+
+    return res
+
+
+def _apply_morphology(m, op_type, iterations=1, prag=127):
+    """
+    Functie de baza comuna pentru operatiile morfologice.
+    Foloseste un nucleu standard de 3x3.
+    Presupunem ca Obiectul = NEGRU (0) si Fundalul = ALB (255)
+    """
+    h, w = len(m), len(m[0])
+    # Cream o matrice temporara binarizata strict (0 si 255)
+    current = [[0] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            r, g, b = m[y][x]
+            current[y][x] = 0 if ((r + g + b) // 3) < prag else 255
+
+    for _ in range(iterations):
+        temp = [[255] * w for _ in range(h)]
+        for y in range(h):
+            for x in range(w):
+                neighbors = []
+                for dy in [-1, 0, 1]:
+                    for dx in [-1, 0, 1]:
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < w and 0 <= ny < h:
+                            neighbors.append(current[ny][nx])
+                        else:
+                            # Consideram marginile ca fiind fundal (alb)
+                            neighbors.append(255)
+
+                if op_type == 'dilatare':
+                    # Ingrosam pixelii negri -> luam minimul
+                    temp[y][x] = min(neighbors)
+                elif op_type == 'eroziune':
+                    # Subtiem pixelii negri -> luam maximul
+                    temp[y][x] = max(neighbors)
+
+        current = temp
+
+    # Reconversie la matrice de format [R, G, B]
+    res = [[[val, val, val] for val in row] for row in current]
+    return res
+
+
+def get_dilatare(m, iteratii):
+    """Mareste / Ingroasa aria obiectelor negre."""
+    return _apply_morphology(m, 'dilatare', iteratii)
+
+
+def get_eroziune(m, iteratii):
+    """Micsoreaza / Subtiaza aria obiectelor negre."""
+    return _apply_morphology(m, 'eroziune', iteratii)
+
+
+def get_deschidere(m, iteratii):
+    """Deschidere = Eroziune urmata de Dilatare. Elimina zgomotul mic."""
+    eroded = _apply_morphology(m, 'eroziune', iteratii)
+    return _apply_morphology(eroded, 'dilatare', iteratii)
+
+
+def get_inchidere(m, iteratii):
+    """Inchidere = Dilatare urmata de Eroziune. Acopera gaurile din obiecte."""
+    dilated = _apply_morphology(m, 'dilatare', iteratii)
+    return _apply_morphology(dilated, 'eroziune', iteratii)

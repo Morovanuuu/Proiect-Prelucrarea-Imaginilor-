@@ -25,7 +25,8 @@ class ImageApp:
         self.original_matrix = None
         self.display_matrix = None
         self.current_filter = None
-        self.target_label = None  # Pastreaza minte ce obiect a selectat user-ul
+        self.target_label = None
+        self.morph_iterations = 1  # Pastram numarul de repetari pentru salvare
 
         self.start_frame = tk.Frame(self.root, bg=self.bg_workspace)
         self.main_frame = tk.Frame(self.root, bg=self.bg_workspace)
@@ -93,12 +94,18 @@ class ImageApp:
         self.menubar.add_cascade(label="Conversii Culoare", menu=menu_culori)
 
         menu_analiza = tk.Menu(self.menubar, tearoff=0)
-        for f in ["Binarizare", "Histograma", "Momente Ordin 1", "Momente Ordin 2", "Matrice Covarianta", "Proiectii"]:
+        for f in ["Binarizare", "Histograma", "Egalizare Histograma", "Momente Ordin 1", "Momente Ordin 2",
+                  "Matrice Covarianta", "Proiectii"]:
             menu_analiza.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Analiza & Statistica", menu=menu_analiza)
 
+        # Meniu Nou pentru Operatii Morfologice (Lab 6)
+        menu_morfologie = tk.Menu(self.menubar, tearoff=0)
+        for f in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
+            menu_morfologie.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
+        self.menubar.add_cascade(label="Morfologie", menu=menu_morfologie)
+
         menu_avansat = tk.Menu(self.menubar, tearoff=0)
-        # AM ADAUGAT OPTIUNEA NOUA AICI
         for f in ["Sobel (Directie)", "Etichetare (BFS)", "Selecteaza Obiect (Dupa Eticheta)"]:
             menu_avansat.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Filtre Avansate", menu=menu_avansat)
@@ -212,6 +219,33 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_hist.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Histograma", 0, 0)
 
+        # LABORATOR 6
+        elif filter_name == "Egalizare Histograma":
+            res = filters.get_egalizare_histograma(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_eq.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Egalizare Histograma", 0, 0)
+
+        elif filter_name in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
+            iters = simpledialog.askinteger("Operatie Morfologica",
+                                            f"De cate ori doriti sa aplicati iteratia de {filter_name}?\nRecomandat: 1, 2 sau 3",
+                                            minvalue=1, maxvalue=20, initialvalue=1)
+            if iters is None:
+                self.update_status("Operatie morfologica anulata.", "#F8F8F2")
+                return
+
+            self.morph_iterations = iters
+            if filter_name == "Dilatare":
+                res = filters.get_dilatare(m, iters)
+            elif filter_name == "Eroziune":
+                res = filters.get_eroziune(m, iters)
+            elif filter_name == "Deschidere":
+                res = filters.get_deschidere(m, iters)
+            elif filter_name == "Inchidere":
+                res = filters.get_inchidere(m, iters)
+
+            self.tk_g1 = self.matrix_to_tk(res, "t_morph.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, f"{filter_name} (x{iters})", 0, 0)
+
         elif filter_name == "Momente Ordin 1":
             res, xc, yc, m00, m10, m01 = filters.get_moments1(m)
             if res is None:
@@ -252,21 +286,15 @@ class ImageApp:
             info_text = f"Obiecte gasite: {obj_count}\n(Colorate distinct)"
             self._setup_canvas(self.canvas_g1, self.tk_g1, info_text, 0, 0)
 
-        # LOGICA PENTRU NOUA CERINTA - SELECTIA UNUI SINGUR OBIECT
         elif filter_name == "Selecteaza Obiect (Dupa Eticheta)":
-            # 1. Numaram mai intai obiectele ca sa stim ce interval dam user-ului
             _, obj_count = filters.get_connected_components(m)
-
             if obj_count == 0:
                 self.update_status("Eroare: Imaginea nu contine niciun obiect (este complet alba)!", "#FF5555")
                 return
-
-            # 2. Deschidem fereastra de dialog
             target = simpledialog.askinteger("Selectie Obiect", f"Introdu numarul obiectului cautat (1 - {obj_count}):",
                                              minvalue=1, maxvalue=obj_count)
-
             if target is not None:
-                self.target_label = target  # Memoram alegerea in caz ca vrea sa salveze
+                self.target_label = target
                 res_iso = filters.get_isolated_object(m, target)
                 self.tk_g1 = self.matrix_to_tk(res_iso, "t_iso.ppm")
                 self._setup_canvas(self.canvas_g1, self.tk_g1, f"Obiect Izolat: #{target}", 0, 0)
@@ -309,42 +337,36 @@ class ImageApp:
                 write_bmp(r3, base_path.replace(".bmp", "_g3.bmp"))
             elif sel == "CMY":
                 write_bmp(filters.get_cmy(m), base_path)
-            elif sel == "YUV":
-                y, u, v = filters.get_yuv(m)
-                write_bmp(y, base_path.replace(".bmp", "_Y.bmp"))
-                write_bmp(u, base_path.replace(".bmp", "_U.bmp"))
-                write_bmp(v, base_path.replace(".bmp", "_V.bmp"))
-            elif sel == "YCbCr":
-                y, cb, cr = filters.get_ycbcr(m)
-                write_bmp(y, base_path.replace(".bmp", "_Y.bmp"))
-                write_bmp(cb, base_path.replace(".bmp", "_Cb.bmp"))
-                write_bmp(cr, base_path.replace(".bmp", "_Cr.bmp"))
-            elif sel == "HSV":
-                h_m, s_m, v_m = filters.get_hsv(m)
-                write_bmp(h_m, base_path.replace(".bmp", "_H.bmp"))
-                write_bmp(s_m, base_path.replace(".bmp", "_S.bmp"))
-                write_bmp(v_m, base_path.replace(".bmp", "_V.bmp"))
-            elif sel == "Invers RGB":
-                inv, r, g, b = filters.get_invers(m)
-                write_bmp(inv, base_path.replace(".bmp", "_inv.bmp"))
-                write_bmp(r, base_path.replace(".bmp", "_r.bmp"))
-                write_bmp(g, base_path.replace(".bmp", "_g.bmp"))
-                write_bmp(b, base_path.replace(".bmp", "_b.bmp"))
             elif sel == "Binarizare":
                 write_bmp(filters.get_binarizare(m), base_path)
+            elif sel == "Egalizare Histograma":
+                write_bmp(filters.get_egalizare_histograma(m), base_path)
+
+            # Salvare Operatii Morfologice (Folosind iteratiile alese de utilizator)
+            elif sel == "Dilatare":
+                write_bmp(filters.get_dilatare(m, self.morph_iterations), base_path)
+            elif sel == "Eroziune":
+                write_bmp(filters.get_eroziune(m, self.morph_iterations), base_path)
+            elif sel == "Deschidere":
+                write_bmp(filters.get_deschidere(m, self.morph_iterations), base_path)
+            elif sel == "Inchidere":
+                write_bmp(filters.get_inchidere(m, self.morph_iterations), base_path)
+
             elif sel == "Sobel (Directie)":
                 res_sobel, _, _ = filters.get_sobel(m)
                 write_bmp(res_sobel, base_path.replace(".bmp", "_sobel.bmp"))
             elif sel == "Etichetare (BFS)":
                 res_labels, _ = filters.get_connected_components(m)
                 write_bmp(res_labels, base_path.replace(".bmp", "_etichetat.bmp"))
-            # ADĂUGARE SALVARE PENTRU OBIECTUL IZOLAT
             elif sel == "Selecteaza Obiect (Dupa Eticheta)":
                 if hasattr(self, 'target_label') and self.target_label:
                     res_iso = filters.get_isolated_object(m, self.target_label)
                     write_bmp(res_iso, base_path.replace(".bmp", f"_obiect_{self.target_label}.bmp"))
+            else:
+                self.update_status(f"Acest filtru nu este inca configurat pentru salvare.", "#FF5555")
+                return
 
-            self.update_status(f"Imaginea cu filtrul '{sel}' a fost salvata cu succes!", "#50FA7B")
+            self.update_status(f"Imaginea a fost salvata cu succes!", "#50FA7B")
         except Exception as e:
             self.update_status(f"Eroare la salvare: {e}", "#FF5555")
 
