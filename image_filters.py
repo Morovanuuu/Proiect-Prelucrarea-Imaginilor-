@@ -590,3 +590,71 @@ def get_fourier_transform(m):
 
     return res
 
+
+#  Dithering (Floyd-Steinberg)
+def get_floyd_steinberg(m):
+    """
+    Foloseste o paleta de culori fixata si difuzeaza eroarea pe canalele R, G si B
+    conform matricii standard (7/16, 3/16, 5/16, 1/16).
+    """
+    h, w = len(m), len(m[0])
+
+    # Definim Paleta de culori (RGB + CMY + Alb/Negru)
+    palette = [
+        [0, 0, 0],  # Negru
+        [255, 255, 255],  # Alb
+        [255, 0, 0],  # Rosu
+        [0, 255, 0],  # Verde
+        [0, 0, 255],  # Albastru
+        [255, 255, 0],  # Galben
+        [0, 255, 255],  # Cyan
+        [255, 0, 255]  # Magenta
+    ]
+
+    def nearest_color(r, g, b):
+        min_dist = float('inf')
+        best_c = palette[0]
+        for pr, pg, pb in palette:
+            dist = math.sqrt((r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2)
+            if dist < min_dist:
+                min_dist = dist
+                best_c = [pr, pg, pb]
+        return best_c
+
+    # Cream o copie float a imaginii pentru a nu pierde din precizie la calculul erorii
+    float_m = [[[float(c) for c in pixel] for pixel in row] for row in m]
+
+    for y in range(h):
+        for x in range(w):
+            old_r, old_g, old_b = float_m[y][x]
+
+            # Gasim culoarea din paleta
+            new_r, new_g, new_b = nearest_color(old_r, old_g, old_b)
+            float_m[y][x] = [new_r, new_g, new_b]
+
+            # Calculam eroarea
+            err_r = old_r - new_r
+            err_g = old_g - new_g
+            err_b = old_b - new_b
+
+            # Functie pentru a distribui eroarea la vecini
+            def add_error(nx, ny, factor):
+                if 0 <= nx < w and 0 <= ny < h:
+                    float_m[ny][nx][0] += err_r * factor
+                    float_m[ny][nx][1] += err_g * factor
+                    float_m[ny][nx][2] += err_b * factor
+
+            # Matricea de difuzie a erorii Floyd-Steinberg
+            add_error(x + 1, y, 7.0 / 16.0)  # Dreapta
+            add_error(x - 1, y + 1, 3.0 / 16.0)  # Stanga-Jos
+            add_error(x, y + 1, 5.0 / 16.0)  # Jos
+            add_error(x + 1, y + 1, 1.0 / 16.0)  # Dreapta-Jos
+
+    # Reconstruim imaginea aplicand clamp (0-255) pentru a o putea afisa
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            r, g, b = float_m[y][x]
+            res[y][x] = [clamp(r), clamp(g), clamp(b)]
+
+    return res

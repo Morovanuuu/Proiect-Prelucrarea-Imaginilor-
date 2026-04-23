@@ -117,7 +117,7 @@ class ImageApp:
         self.menubar.add_cascade(label="Morfologie", menu=menu_morfologie)
 
         menu_avansat = tk.Menu(self.menubar, tearoff=0)
-        for f in ["Sobel (Directie)", "Etichetare (BFS)", "Selecteaza Obiect (Dupa Eticheta)"]:
+        for f in ["Sobel (Directie)", "Etichetare (BFS)", "Selecteaza Obiect (Dupa Eticheta)", "Dithering (Floyd-Steinberg)"]:
             menu_avansat.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Filtre Avansate", menu=menu_avansat)
 
@@ -240,6 +240,11 @@ class ImageApp:
             res = filters.get_fourier_transform(m)
             self.tk_g1 = self.matrix_to_tk(res, "t_fft.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Spectru Frecvente", 0, 0)
+
+        elif filter_name == "Dithering (Floyd-Steinberg)":
+            res = filters.get_floyd_steinberg(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_floyd.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Floyd-Steinberg", 0, 0)
 
         elif filter_name == "Mediere (Blur)":
             res = filters.get_mediere(m)
@@ -415,13 +420,18 @@ class ImageApp:
                 if hasattr(self, 'target_label') and self.target_label:
                     res_iso = filters.get_isolated_object(m, self.target_label)
                     write_bmp(res_iso, base_path.replace(".bmp", f"_obiect_{self.target_label}.bmp"))
+            elif sel == "Dithering (Floyd-Steinberg)":
+                write_bmp(filters.get_floyd_steinberg(m), base_path)
             else:
                 self.update_status(f"Acest filtru nu este inca configurat pentru salvare.", "#FF5555")
+
+
                 return
 
             self.update_status(f"Imaginea a fost salvata cu succes!", "#50FA7B")
         except Exception as e:
             self.update_status(f"Eroare la salvare: {e}", "#FF5555")
+
 
     def show_main_page(self):
         self.start_frame.pack_forget()
