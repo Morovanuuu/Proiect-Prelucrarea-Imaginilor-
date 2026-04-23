@@ -547,3 +547,46 @@ def get_accentuare(m):
 
     return res
 
+
+#  Transformata Fourier (Numpy)
+
+def get_fourier_transform(m):
+
+    h, w = len(m), len(m[0])
+
+    # 1. Convertim imaginea intr-o matrice 2D NumPy, cu numere reale
+    # Transformata Fourier se aplica pe imagini alb-negru (grayscale)
+    gray = np.zeros((h, w), dtype=np.float64)
+    for y in range(h):
+        for x in range(w):
+            r, g, b = m[y][x]
+            # Formula standard de conversie in tonuri de gri
+            gray[y][x] = 0.299 * r + 0.587 * g + 0.114 * b
+
+    # 2. Aplicam Transformata Fourier Rapida 2D (FFT2) din Numpy
+    f = np.fft.fft2(gray)
+
+    # 3. Mutam componenta de frecventa zero (cea mai luminoasa, numita DC)
+    fshift = np.fft.fftshift(f)
+
+    # 4. Numerele rezultate sunt complexe (au o parte reala si una imaginara
+    # Pentru a le afisa pe ecran, trebuie sa le calculam distanta absoluta
+    magnitude = np.abs(fshift)
+
+    # 5. Aplicam o scara logaritmica.
+    magnitude_log = np.log(1 + magnitude)
+
+    # 6. Normalizam valorile matematice ca sa se incadreze in intervalul de culoare 0-255
+    max_mag = np.max(magnitude_log)
+    if max_mag == 0:
+        max_mag = 1  # Evitam impartirea la zero
+
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            val = int((magnitude_log[y, x] / max_mag) * 255)
+            val = clamp(val)
+            res[y][x] = [val, val, val]
+
+    return res
+

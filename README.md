@@ -16,7 +16,7 @@ Aplicatia permite incarcarea imaginilor BMP necomprimate, procesarea acestora si
     * Proiectii de intensitate (Orizontala si Verticala).
 
 ## Structura Proiectului
-Am impartit in 4 module principale aplicatia:
+Am impartit in 4 module principale aplicatia :
 
 1.  `main.py` - Punctul de intrare in aplicatie (Entry Point). Initializeaza si ruleaza interfata grafica.
 2.  `bmp_io.py` - Modul dedicat exclusiv decodificarii (citirii) si codificarii (scrierii) fisierelor `.bmp` la nivel de bytes, manipuland direct header-ele si calculand padding-ul necesar.

@@ -26,7 +26,7 @@ class ImageApp:
         self.display_matrix = None
         self.current_filter = None
         self.target_label = None
-        self.morph_iterations = 1  # Pastram numarul de repetari pentru salvare
+        self.morph_iterations = 1
 
         self.start_frame = tk.Frame(self.root, bg=self.bg_workspace)
         self.main_frame = tk.Frame(self.root, bg=self.bg_workspace)
@@ -64,16 +64,21 @@ class ImageApp:
 
         self.left_panel = tk.Frame(self.content_frame, bg=self.bg_workspace)
         self.left_panel.pack(side="left", expand=True, fill="both")
+
         self.right_panel = tk.Frame(self.content_frame, bg=self.bg_workspace)
         self.right_panel.pack(side="right", expand=True, fill="both")
 
         self.canvas_orig = tk.Label(self.left_panel, bg=self.bg_workspace)
         self.canvas_orig.pack(expand=True)
-        self.canvas_g1 = tk.Label(self.right_panel, bg=self.bg_workspace)
-        self.canvas_g2 = tk.Label(self.right_panel, bg=self.bg_workspace)
-        self.canvas_g3 = tk.Label(self.right_panel, bg=self.bg_workspace)
-        self.canvas_g4 = tk.Label(self.right_panel, bg=self.bg_workspace)
-        self.canvas_cmy = tk.Label(self.right_panel, bg=self.bg_workspace)
+
+        self.filter_container = tk.Frame(self.right_panel, bg=self.bg_workspace)
+        self.filter_container.pack(expand=True)
+
+        self.canvas_g1 = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_g2 = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_g3 = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_g4 = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_cmy = tk.Label(self.filter_container, bg=self.bg_workspace)
 
     def create_menu(self):
         self.menubar = tk.Menu(self.root)
@@ -94,12 +99,12 @@ class ImageApp:
         self.menubar.add_cascade(label="Conversii Culoare", menu=menu_culori)
 
         menu_analiza = tk.Menu(self.menubar, tearoff=0)
+
         for f in ["Binarizare", "Histograma", "Egalizare Histograma", "Momente Ordin 1", "Momente Ordin 2",
-                  "Matrice Covarianta", "Proiectii"]:
+                  "Matrice Covarianta", "Proiectii", "Transformata Fourier (Numpy)"]:
             menu_analiza.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Analiza & Statistica", menu=menu_analiza)
 
-        # Meniu Nou pentru Filtre Spatiale (Lab 7)
         menu_spatiale = tk.Menu(self.menubar, tearoff=0)
         for f in ["Mediere (Blur)", "Median (Zgomot)", "Minim (Intunecare)", "Maxim (Luminare)",
                   "Accentuare (Sharpen)"]:
@@ -230,7 +235,12 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_eq.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Egalizare Histograma", 0, 0)
 
-        # LAB 7: Filtre Spatiale
+        #  logica pentru Transformata Fourier:
+        elif filter_name == "Transformata Fourier (Numpy)":
+            res = filters.get_fourier_transform(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_fft.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Spectru Frecvente", 0, 0)
+
         elif filter_name == "Mediere (Blur)":
             res = filters.get_mediere(m)
             self.tk_g1 = self.matrix_to_tk(res, "t_med.ppm")
@@ -349,7 +359,9 @@ class ImageApp:
             return
 
         sel = self.current_filter
-        no_save = ["Histograma", "Momente Ordin 1", "Momente Ordin 2", "Matrice Covarianta", "Proiectii"]
+        # Am adaugat Transformata Fourier la functiile care NU se pot salva direct (fiind o vizualizare spectrala)
+        no_save = ["Histograma", "Momente Ordin 1", "Momente Ordin 2", "Matrice Covarianta", "Proiectii",
+                   "Transformata Fourier (Numpy)"]
         if sel in no_save:
             self.update_status("Aceste vizualizari sunt doar preview si nu pot fi salvate ca imagine BMP!", "#FF5555")
             return
@@ -373,7 +385,6 @@ class ImageApp:
             elif sel == "Egalizare Histograma":
                 write_bmp(filters.get_egalizare_histograma(m), base_path)
 
-            # LAB 7 Salvari
             elif sel == "Mediere (Blur)":
                 write_bmp(filters.get_mediere(m), base_path)
             elif sel == "Median (Zgomot)":
