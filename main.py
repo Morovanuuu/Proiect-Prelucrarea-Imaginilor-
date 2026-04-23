@@ -15,3 +15,4 @@ if __name__ == "__main__":
 
     # Se mentinem aplicatia deschisa pana la inchiderea ferestrei
     root.mainloop()
+
