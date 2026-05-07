@@ -107,7 +107,7 @@ class ImageApp:
 
         menu_spatiale = tk.Menu(self.menubar, tearoff=0)
         for f in ["Mediere (Blur)", "Median (Zgomot)", "Minim (Intunecare)", "Maxim (Luminare)",
-                  "Accentuare (Sharpen)"]:
+                  "Accentuare (Sharpen)", "Laplacian (Muchii)"]:
             menu_spatiale.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Filtre Spatiale", menu=menu_spatiale)
 
@@ -271,6 +271,11 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_sharp.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Accentuare (Sharpen)", 0, 0)
 
+        elif filter_name == "Laplacian (Muchii)":
+            res = filters.get_laplacian(m)
+            self.tk_g1 = self.matrix_to_tk(res, "t_laplace.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Filtru Laplacian", 0, 0)
+
         elif filter_name in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
             iters = simpledialog.askinteger("Operatie Morfologica",
                                             f"De cate ori doriti sa aplicati iteratia de {filter_name}?\nRecomandat: 1, 2 sau 3",
@@ -400,6 +405,8 @@ class ImageApp:
                 write_bmp(filters.get_maxim(m), base_path)
             elif sel == "Accentuare (Sharpen)":
                 write_bmp(filters.get_accentuare(m), base_path)
+            elif sel == "Laplacian (Muchii)":
+                write_bmp(filters.get_laplacian(m), base_path)
 
             elif sel == "Dilatare":
                 write_bmp(filters.get_dilatare(m, self.morph_iterations), base_path)

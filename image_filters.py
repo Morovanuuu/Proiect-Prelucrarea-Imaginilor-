@@ -658,3 +658,38 @@ def get_floyd_steinberg(m):
             res[y][x] = [clamp(r), clamp(g), clamp(b)]
 
     return res
+
+
+def get_laplacian(m):
+    """
+    Aplica filtrul Laplacian (3x3) pentru detectarea marginilor
+    """
+    h, w = len(m), len(m[0])
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    # Matricea  pentru Laplacian
+    kernel = [
+        [-1, -1, -1],
+        [-1, 8, -1],
+        [-1, -1, -1]
+    ]
+
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            sum_val = 0
+
+            # Parcurgem vecinii
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    r, g, b = m[y + dy][x + dx]
+                    # Calculam intensitatea pixelului curent
+                    gray = (r + g + b) // 3
+                    weight = kernel[dy + 1][dx + 1]
+                    sum_val += gray * weight
+
+            # Din cauza valorilor de -1, suma poate fi negativa.
+            # Functia 'clamp' taie tot ce e sub 0 si peste 255.
+            final_val = clamp(sum_val)
+            res[y][x] = [final_val, final_val, final_val]
+
+    return res
