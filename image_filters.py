@@ -693,3 +693,38 @@ def get_laplacian(m):
             res[y][x] = [final_val, final_val, final_val]
 
     return res
+
+
+def get_eliminare_zgomot_gaussian(m):
+
+    h, w = len(m), len(m[0])
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    kernel_size = 3
+    half_kernel = kernel_size // 2  # este  1
+
+    for y in range(h):
+        for x in range(w):
+            sum_r, sum_g, sum_b = 0, 0, 0
+
+            # Parcurgem kernel 3x3
+            for i in range(-half_kernel, half_kernel + 1):
+                for j in range(-half_kernel, half_kernel + 1):
+
+                    offset_x = max(0, min(x + i, w - 1))
+                    offset_y = max(0, min(y + j, h - 1))
+
+                    r, g, b = m[offset_y][offset_x]
+                    sum_r += r
+                    sum_g += g
+                    sum_b += b
+
+            # Calculam media valorilor
+            avg_r = sum_r // (kernel_size * kernel_size)
+            avg_g = sum_g // (kernel_size * kernel_size)
+            avg_b = sum_b // (kernel_size * kernel_size)
+
+            # Setam noua valoare a pixelului
+            res[y][x] = [avg_r, avg_g, avg_b]
+
+    return res
