@@ -661,19 +661,19 @@ def get_floyd_steinberg(m):
 
 
 def get_laplacian(m):
-    """
-    Aplica filtrul Laplacian (3x3) pentru detectarea marginilor
-    """
+
+    # Iau o imagine si creez o matrice noua goala pentru rezultat, apoi aplic filtrul Laplacian (3x3) pentru detectarea martignilor
+    #
     h, w = len(m), len(m[0])
     res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
 
-    # Matricea  pentru Laplacian
+    # Definesc o matrice mica 3x3 (kernel) care are 8 in mijloc si -1 in rest
     kernel = [
         [-1, -1, -1],
         [-1, 8, -1],
         [-1, -1, -1]
     ]
-
+    # Am mers  cu un dublu for prin toti pixelii imaginii, dar sar peste marginile extreme (x=0, y=0)
     for y in range(1, h - 1):
         for x in range(1, w - 1):
             sum_val = 0
@@ -697,6 +697,11 @@ def get_laplacian(m):
 
 def get_eliminare_zgomot_gaussian(m):
 
+ # Pregatesc o matrice noua pentru rezultat si setez dimensiunea kernelului la 3 ( vecini intre -1 si 1)
+ # Pentru fiecare pixel, fac un for prin zona lui de vecini 3x3
+ # Pentru a nu iesi in afara imaginii la margini, folosesc min si max ca sa ma mentin in limitele (0, width) si (0, height)
+ # Adun separat valorile pentru rosu, verde si albastru de la toti cei 9 vecini
+ # Am impartit sumele la 9  sa aflu media aritmetica
     h, w = len(m), len(m[0])
     res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
 
@@ -728,3 +733,88 @@ def get_eliminare_zgomot_gaussian(m):
             res[y][x] = [avg_r, avg_g, avg_b]
 
     return res
+
+def get_snr_single(m):
+
+    # Creez doua variabile pentru suma_semnal si suma_zgomot (pornite de la 0)
+    # Am trecut  prin fiecare pixel al imaginii
+    # Setez semnalul ca fiind valoarea de rosu a pixelului
+    # Calculez zgomotul scazand semnalul din 255 (valoarea maxima posibila)
+    # Adun semnalul si zgomotul la sumele mele totale
+    # Dupa ce termin pixelii, calculez media pentru semnal si media pentru zgomot impartind la numarul total de pixeli
+    # Aplic formula  10 * log10 ( (media_semnal la patrat) / (media_zgomot la patrat) )
+    # Calcul SNR (Signal-to-Noise Ratio)
+
+    h, w = len(m), len(m[0])
+    signal_sum = 0
+    noise_sum = 0
+
+    for y in range(h):
+        for x in range(w):
+            r, g, b = m[y][x]
+            signal = r
+            noise = abs(255 - signal)
+
+            signal_sum += signal
+            noise_sum += noise
+
+    pixels = w * h
+    signal_mean = signal_sum / pixels
+    noise_mean = noise_sum / pixels
+
+    # Prevenim impartirea la zero daca cumva imaginea e complet alba/neagra
+    if noise_mean == 0:
+        return float('inf')
+
+    snr = 10 * math.log10((signal_mean * signal_mean) / (noise_mean * noise_mean))
+    return snr
+
+
+def _java_getRGB(r, g, b):
+
+    val = 0xFF000000 | (r << 16) | (g << 8) | b
+    if val >= 0x80000000:
+        val -= 0x100000000
+    return val
+
+
+def get_snr_double(m1, m2):
+
+    # Iau dimensiunea minima dintre cele 2 imagini (ca sa nu dea eroare daca una e mai mare)
+    # Initializez sumele pentru semnal si zgomot cu 0
+    # Parcurg pixelii comuni din ambele imagini deodata
+    # Transform culorile RGB in numere intregi pe 32 de biti
+    # Semnalul e diferenta absoluta intre pixelul din prima poza si cel din a doua
+    # Zgomotul e valoarea absoluta a pixelului din prima poza
+    # Adaug la sumele totale, calculez mediile pe toata imaginea
+    # O pun in formula: 10 * log10((media_semnal^2) / (media_zgomot^2)) si returnez rezultatul
+
+    h = min(len(m1), len(m2))
+    w = min(len(m1[0]), len(m2[0]))
+
+    signal_sum = 0
+    noise_sum = 0
+
+    for y in range(h):
+        for x in range(w):
+            r1, g1, b1 = m1[y][x]
+            r2, g2, b2 = m2[y][x]
+
+            rgb1 = _java_getRGB(r1, g1, b1)
+            rgb2 = _java_getRGB(r2, g2, b2)
+
+            signal = abs(rgb1 - rgb2)
+            noise = abs(rgb1)
+
+            signal_sum += signal
+            noise_sum += noise
+
+    pixels = w * h
+    signal_mean = signal_sum / pixels
+    noise_mean = noise_sum / pixels
+
+    if noise_mean == 0:
+        return float('inf')
+
+    snr = 10 * math.log10((signal_mean * signal_mean) / (noise_mean * noise_mean))
+    return snr

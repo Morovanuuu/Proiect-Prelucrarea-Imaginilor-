@@ -101,7 +101,7 @@ class ImageApp:
         menu_analiza = tk.Menu(self.menubar, tearoff=0)
 
         for f in ["Binarizare", "Histograma", "Egalizare Histograma", "Momente Ordin 1", "Momente Ordin 2",
-                  "Matrice Covarianta", "Proiectii", "Transformata Fourier (Numpy)"]:
+                  "Matrice Covarianta", "Proiectii", "Transformata Fourier (Numpy)", "SNR (1 Imagine)", "SNR (2 Imagini)"]:
             menu_analiza.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Analiza & Statistica", menu=menu_analiza)
 
@@ -234,6 +234,33 @@ class ImageApp:
             res = filters.get_egalizare_histograma(m)
             self.tk_g1 = self.matrix_to_tk(res, "t_eq.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Egalizare Histograma", 0, 0)
+
+        elif filter_name == "SNR (1 Imagine)":
+            snr_val = filters.get_snr_single(m)
+            self.tk_g1 = self.matrix_to_tk(m, "t_snr1.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, f"SNR Calculat: {snr_val:.2f} dB", 0, 0)
+
+        elif filter_name == "SNR (2 Imagini)":
+            # Cerem utilizatorului sa deschida imaginea de comparatie
+            path2 = filedialog.askopenfilename(title="Selecteaza imaginea pentru comparatie",
+                                               filetypes=[("BMP files", "*.bmp")])
+            if not path2:
+                self.update_status("Selectia celei de-a 2-a imagini a fost anulata.", "#F8F8F2")
+                return
+
+            # Citim a doua imagine si o dimensionam la fel ca pe prima
+            m2 = read_bmp(path2)
+            m2_disp = self.resize_matrix(m2)
+
+            # Calculam SNR-ul
+            snr_val = filters.get_snr_double(m, m2_disp)
+
+            # Afisam ambele imagini in paralel pentru vizualizare
+            self.tk_g1 = self.matrix_to_tk(m, "t_snr2_1.ppm")
+            self.tk_g2 = self.matrix_to_tk(m2_disp, "t_snr2_2.ppm")
+
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Imaginea 1 (Sursa)", 0, 0)
+            self._setup_canvas(self.canvas_g2, self.tk_g2, f"Imaginea 2 (Comparatie)\nScor SNR: {snr_val:.2f} dB", 0, 1)
 
         #  logica pentru Transformata Fourier:
         elif filter_name == "Transformata Fourier (Numpy)":
