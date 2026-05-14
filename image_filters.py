@@ -818,3 +818,59 @@ def get_snr_double(m1, m2):
 
     snr = 10 * math.log10((signal_mean * signal_mean) / (noise_mean * noise_mean))
     return snr
+
+
+# Definesc matricile 3x3 (kernel-urile) pentru Vertical, Orizontal, Sobel si Scharr
+# Merg pixel cu pixel prin imagine (fara marginile extreme)
+# Pentru fiecare pixel, aplic convolutia separat pe R, G si B, inmultind vecinii cu valorile din kernel
+# Apoi adun cele 3 rezultate intr-o singura valoare totala
+# Daca valoarea e negativa, o fac pozitiva (modul/abs). Daca e peste 255, o limitez la 255
+# Salvez valoarea ca ton de gri [val, val, val] in imaginea rezultat
+
+def get_edge_detection(m, filter_type):
+
+    h, w = len(m), len(m[0])
+    res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+    # Definim mastile (kernel-urile) in functie de tipul selectat
+    if filter_type == "Filtru Vertical":
+        kernel = [[1, 0, -1], [1, 0, -1], [1, 0, -1]]
+    elif filter_type == "Filtru Orizontal":
+        kernel = [[1, 1, 1], [0, 0, 0], [-1, -1, -1]]
+    elif filter_type == "Sobel Vertical":
+        kernel = [[1, 0, -1], [2, 0, -2], [1, 0, -1]]
+    elif filter_type == "Sobel Orizontal":
+        kernel = [[1, 2, 1], [0, 0, 0], [-1, -2, -1]]
+    elif filter_type == "Scharr Vertical":
+        kernel = [[3, 0, -3], [10, 0, -10], [3, 0, -3]]
+    elif filter_type == "Scharr Orizontal":
+        kernel = [[3, 10, 3], [0, 0, 0], [-3, -10, -3]]
+    else:
+        return m
+
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            sum_r, sum_g, sum_b = 0, 0, 0
+
+            # Aplicam convolutia (produsul cu kernel-ul 3x3)
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    r, g, b = m[y + dy][x + dx]
+                    weight = kernel[dy + 1][dx + 1]
+
+                    sum_r += r * weight
+                    sum_g += g * weight
+                    sum_b += b * weight
+
+            # combinam canalele
+            total_sum = sum_r + sum_g + sum_b
+
+            # Functia "fixOutOfRangeRGBValues"
+            final_val = abs(total_sum)
+            if final_val > 255:
+                final_val = 255
+
+            final_val = int(final_val)
+            res[y][x] = [final_val, final_val, final_val]
+
+    return res

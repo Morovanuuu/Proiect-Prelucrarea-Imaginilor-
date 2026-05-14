@@ -79,6 +79,8 @@ class ImageApp:
         self.canvas_g3 = tk.Label(self.filter_container, bg=self.bg_workspace)
         self.canvas_g4 = tk.Label(self.filter_container, bg=self.bg_workspace)
         self.canvas_cmy = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_g5 = tk.Label(self.filter_container, bg=self.bg_workspace)
+        self.canvas_g6 = tk.Label(self.filter_container, bg=self.bg_workspace)
 
     def create_menu(self):
         self.menubar = tk.Menu(self.root)
@@ -99,7 +101,6 @@ class ImageApp:
         self.menubar.add_cascade(label="Conversii Culoare", menu=menu_culori)
 
         menu_analiza = tk.Menu(self.menubar, tearoff=0)
-
         for f in ["Binarizare", "Histograma", "Egalizare Histograma", "Momente Ordin 1", "Momente Ordin 2",
                   "Matrice Covarianta", "Proiectii", "Transformata Fourier (Numpy)", "SNR (1 Imagine)", "SNR (2 Imagini)"]:
             menu_analiza.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
@@ -109,6 +110,9 @@ class ImageApp:
         for f in ["Mediere (Blur)", "Median (Zgomot)", "Minim (Intunecare)", "Maxim (Luminare)",
                   "Accentuare (Sharpen)", "Laplacian (Muchii)", "Eliminare Zgomot Gaussian"]:
             menu_spatiale.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
+
+        menu_spatiale.add_separator()
+        menu_spatiale.add_command(label="Detectie Contur (6 Filtre)", command=lambda: self.apply_filter("Detectie Contur (6 Filtre)"))
         self.menubar.add_cascade(label="Filtre Spatiale", menu=menu_spatiale)
 
         menu_morfologie = tk.Menu(self.menubar, tearoff=0)
@@ -157,7 +161,8 @@ class ImageApp:
             self.current_filter = None
 
     def hide_all_canvases(self):
-        for c in [self.canvas_g1, self.canvas_g2, self.canvas_g3, self.canvas_g4, self.canvas_cmy]:
+        for c in [self.canvas_g1, self.canvas_g2, self.canvas_g3, self.canvas_g4, self.canvas_g5, self.canvas_g6,
+                  self.canvas_cmy]:
             c.grid_forget()
 
     def apply_filter(self, filter_name):
@@ -308,6 +313,37 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_gauss.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Eliminare Zgomot Gaussian", 0, 0)
 
+
+        elif filter_name == "Detectie Contur (6 Filtre)":
+            self.update_status("Se calculeaza cele 6 contururi... Te rog asteapta.", "#F1FA8C")
+            self.root.update()
+
+            # 1. Calculam matematic cele 6 variante
+            res_v = filters.get_edge_detection(m, "Filtru Vertical")
+            res_h = filters.get_edge_detection(m, "Filtru Orizontal")
+            res_sv = filters.get_edge_detection(m, "Sobel Vertical")
+            res_sh = filters.get_edge_detection(m, "Sobel Orizontal")
+            res_sch_v = filters.get_edge_detection(m, "Scharr Vertical")
+            res_sch_h = filters.get_edge_detection(m, "Scharr Orizontal")
+
+            # 2. Transformam in poze pentru interfata
+            self.tk_g1 = self.matrix_to_tk(res_v, "t_fv.ppm")
+            self.tk_g2 = self.matrix_to_tk(res_h, "t_fh.ppm")
+            self.tk_g3 = self.matrix_to_tk(res_sv, "t_sv.ppm")
+            self.tk_g4 = self.matrix_to_tk(res_sh, "t_sh.ppm")
+            self.tk_g5 = self.matrix_to_tk(res_sch_v, "t_sch_v.ppm")
+            self.tk_g6 = self.matrix_to_tk(res_sch_h, "t_sch_h.ppm")
+
+            # 3. Le asezam pe grila (rand, coloana)
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Vertical (Simplu)", 0, 0)
+            self._setup_canvas(self.canvas_g2, self.tk_g2, "Orizontal (Simplu)", 0, 1)
+            self._setup_canvas(self.canvas_g3, self.tk_g3, "Sobel Vertical", 0, 2)
+            self._setup_canvas(self.canvas_g4, self.tk_g4, "Sobel Orizontal", 1, 0)
+            self._setup_canvas(self.canvas_g5, self.tk_g5, "Scharr Vertical", 1, 1)
+            self._setup_canvas(self.canvas_g6, self.tk_g6, "Scharr Orizontal", 1, 2)
+
+            self.update_status("Detectie contur finalizata!", "#50FA7B")
+
         elif filter_name in ["Dilatare", "Eroziune", "Deschidere", "Inchidere"]:
             iters = simpledialog.askinteger("Operatie Morfologica",
                                             f"De cate ori doriti sa aplicati iteratia de {filter_name}?\nRecomandat: 1, 2 sau 3",
@@ -368,6 +404,7 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res_labels, "t_labels.ppm")
             info_text = f"Obiecte gasite: {obj_count}\n(Colorate distinct)"
             self._setup_canvas(self.canvas_g1, self.tk_g1, info_text, 0, 0)
+
 
         elif filter_name == "Selecteaza Obiect (Dupa Eticheta)":
             _, obj_count = filters.get_connected_components(m)
@@ -451,6 +488,10 @@ class ImageApp:
             elif sel == "Inchidere":
                 write_bmp(filters.get_inchidere(m, self.morph_iterations), base_path)
 
+            elif sel in ["Filtru Vertical", "Filtru Orizontal", "Sobel Vertical", "Sobel Orizontal", "Scharr Vertical",
+                         "Scharr Orizontal"]:
+                write_bmp(filters.get_edge_detection(m, sel), base_path)
+
             elif sel == "Sobel (Directie)":
                 res_sobel, _, _ = filters.get_sobel(m)
                 write_bmp(res_sobel, base_path.replace(".bmp", "_sobel.bmp"))
@@ -472,6 +513,7 @@ class ImageApp:
             self.update_status(f"Imaginea a fost salvata cu succes!", "#50FA7B")
         except Exception as e:
             self.update_status(f"Eroare la salvare: {e}", "#FF5555")
+
 
 
     def show_main_page(self):
