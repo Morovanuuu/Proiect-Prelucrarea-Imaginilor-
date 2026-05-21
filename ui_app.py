@@ -5,6 +5,7 @@ Rutarea datelor catre modulele de procesare si interactiunea cu utilizatorul.
 """
 
 import tkinter as tk
+import json
 from tkinter import filedialog, simpledialog
 from bmp_io import read_bmp, write_bmp
 import image_filters as filters
@@ -124,6 +125,11 @@ class ImageApp:
         for f in ["Sobel (Directie)", "Etichetare (BFS)", "Selecteaza Obiect (Dupa Eticheta)", "Dithering (Floyd-Steinberg)"]:
             menu_avansat.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
         self.menubar.add_cascade(label="Filtre Avansate", menu=menu_avansat)
+
+        menu_lzw = tk.Menu(self.menubar, tearoff=0)
+        menu_lzw.add_command(label="Comprima imaginea curenta (.lzw)", command=self.compress_lzw)
+        menu_lzw.add_command(label="Deschide si decomprima (.lzw)", command=self.decompress_lzw)
+        self.menubar.add_cascade(label="Compresie LZW", menu=menu_lzw)
 
     def resize_matrix(self, matrix, max_size=320):
         h, w = len(matrix), len(matrix[0])
@@ -547,3 +553,59 @@ class ImageApp:
         self.current_filter = None
         self.target_label = None
         self.update_status("Spatiul de lucru a fost curatat.", self.text_color)
+
+    def compress_lzw(self):
+        if not self.original_matrix:
+            self.update_status("Eroare: Deschide o imagine mai intai din meniul Fisier!", "#FF5555")
+            return
+
+        path = filedialog.asksaveasfilename(defaultextension=".lzw", filetypes=[("LZW compressed", "*.lzw")])
+        if not path:
+            return
+
+        self.update_status("Se executa compresia LZW... Te rog asteapta.", "#F1FA8C")
+        self.root.update()
+
+        try:
+            # Comprimam matricea originala (pentru a nu pierde calitate prin resize)
+            coduri_comprimate = filters.get_lzw_compress(self.original_matrix)
+
+            # Salvam lista de coduri in fisierul .lzw
+            with open(path, "w") as f:
+                json.dump(coduri_comprimate, f)
+
+            self.update_status("Imaginea a fost comprimata si salvata cu succes!", "#50FA7B")
+        except Exception as e:
+            self.update_status(f"Eroare la compresie LZW: {e}", "#FF5555")
+
+    def decompress_lzw(self):
+        path = filedialog.askopenfilename(filetypes=[("LZW compressed", "*.lzw")])
+        if not path:
+            return
+
+        self.update_status("Se citeste si decomprima fisierul LZW... Asteapta.", "#F1FA8C")
+        self.root.update()
+
+        try:
+            # Citim codurile din fisierul .lzw
+            with open(path, "r") as f:
+                coduri_comprimate = json.load(f)
+
+            # Rulem algoritmul de decompresie pentru a recrea matricea
+            matrice_recuperata = filters.get_lzw_decompress(coduri_comprimate)
+
+            # Incarcam matricea in aplicatie exact ca la open_image normal
+            self.original_matrix = matrice_recuperata
+            self.display_matrix = self.resize_matrix(self.original_matrix)
+            self.tk_orig = self.matrix_to_tk(self.display_matrix, "t_orig.ppm")
+
+            # Afisam imaginea pe panoul din stanga
+            self.canvas_orig.config(image=self.tk_orig, text="Original (Decomprimat LZW)",
+                                    compound="top", fg=self.text_color, font=("Arial", 12, "bold"))
+
+            self.hide_all_canvases()
+            self.current_filter = None
+            self.update_status("Fisierul LZW a fost decomprimat si afisat cu succes!", "#50FA7B")
+
+        except Exception as e:
+            self.update_status(f"Eroare la decompresie LZW: {e}", "#FF5555")

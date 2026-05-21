@@ -937,3 +937,79 @@ def get_laplacian_of_gaussian(m, sigma=1.4):
     imagine_finala = aplica_convolutie(imagine_blurata, laplace_kernel, is_laplace=True)
 
     return imagine_finala
+
+
+def get_lzw_compress(matrix):
+    # Aplatizam imaginea intr-o singura lista 1D
+    # Punem si latimea (w) si inaltimea (h) la inceput ca sa stiu cum so refacem
+    h, w = len(matrix), len(matrix[0])
+    data = [w, h]
+    for row in matrix:
+        for r, g, b in row:
+            data.extend([r, g, b])
+
+    # Initializam dictionarul (ASCII standard 0-255)
+    # Am folosit tuple pe post de chei, deoarece listele nu pot fi chei de dictionar
+    dictionar = {tuple([i]): i for i in range(256)}
+    dict_size = 256
+
+    P = []
+    rezultat_comprimat = []
+
+    # LZW Core
+    for C in data:
+        P_plus_C = P + [C]
+
+        if tuple(P_plus_C) in dictionar:
+            P = P_plus_C
+        else:
+            rezultat_comprimat.append(dictionar[tuple(P)])
+            dictionar[tuple(P_plus_C)] = dict_size
+            dict_size += 1
+            P = [C]
+
+    # Daca ramane ceva la final in P, il adaugam
+    if P:
+        rezultat_comprimat.append(dictionar[tuple(P)])
+
+    return rezultat_comprimat  # Returnam o lista de coduri (numere > 255)
+
+
+def get_lzw_decompress(compressed_data):
+    # Initializam dictionarul invers (0-255)
+    dictionar = {i: [i] for i in range(256)}
+    dict_size = 256
+
+    # LZW Decompresie
+    OLD = compressed_data[0]
+    S = dictionar[OLD]
+    rezultat_decomprimat = list(S)
+
+    for NEW in compressed_data[1:]:
+        if NEW in dictionar:
+            S = dictionar[NEW]
+        elif NEW == dict_size:
+            # caz special LZW: s = translation of OLD + first char of S
+            S = dictionar[OLD] + [dictionar[OLD][0]]
+        else:
+            raise ValueError("Eroare date la decompresie LZW!")
+
+        rezultat_decomprimat.extend(S)
+        dictionar[dict_size] = dictionar[OLD] + [S[0]]
+        dict_size += 1
+        OLD = NEW
+
+    #  Refacem matricea imaginii 3D din lista "desfasurata"
+    w, h = rezultat_decomprimat[0], rezultat_decomprimat[1]
+    pixeli = rezultat_decomprimat[2:]
+
+    matrix = []
+    idx = 0
+    for _ in range(h):
+        row = []
+        for _ in range(w):
+            row.append([pixeli[idx], pixeli[idx + 1], pixeli[idx + 2]])
+            idx += 3
+        matrix.append(row)
+
+    return matrix
