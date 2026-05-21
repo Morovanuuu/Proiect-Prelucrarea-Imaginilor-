@@ -108,7 +108,7 @@ class ImageApp:
 
         menu_spatiale = tk.Menu(self.menubar, tearoff=0)
         for f in ["Mediere (Blur)", "Median (Zgomot)", "Minim (Intunecare)", "Maxim (Luminare)",
-                  "Accentuare (Sharpen)", "Laplacian (Muchii)", "Eliminare Zgomot Gaussian"]:
+                  "Accentuare (Sharpen)", "Laplacian (Muchii)", "Eliminare Zgomot Gaussian", "Laplacian cu Gaussian"]:
             menu_spatiale.add_command(label=f, command=lambda sel=f: self.apply_filter(sel))
 
         menu_spatiale.add_separator()
@@ -313,6 +313,15 @@ class ImageApp:
             self.tk_g1 = self.matrix_to_tk(res, "t_gauss.ppm")
             self._setup_canvas(self.canvas_g1, self.tk_g1, "Eliminare Zgomot Gaussian", 0, 0)
 
+        elif filter_name == "Laplacian cu Gaussian":
+            self.update_status("Se calculeaza Laplacian of Gaussian...", "#F1FA8C")
+            self.root.update()
+
+            res = filters.get_laplacian_of_gaussian(m)
+
+            self.tk_g1 = self.matrix_to_tk(res, "t_log.ppm")
+            self._setup_canvas(self.canvas_g1, self.tk_g1, "Laplacian cu Gaussian", 0, 0)
+
 
         elif filter_name == "Detectie Contur (6 Filtre)":
             self.update_status("Se calculeaza cele 6 contururi... Te rog asteapta.", "#F1FA8C")
@@ -478,6 +487,9 @@ class ImageApp:
                 write_bmp(filters.get_laplacian(m), base_path)
             elif sel == "Eliminare Zgomot Gaussian":
                 write_bmp(filters.get_eliminare_zgomot_gaussian(m), base_path)
+
+            elif sel == "Laplacian cu Gaussian":
+                write_bmp(filters.get_laplacian_of_gaussian(m), base_path)
 
             elif sel == "Dilatare":
                 write_bmp(filters.get_dilatare(m, self.morph_iterations), base_path)

@@ -874,3 +874,66 @@ def get_edge_detection(m, filter_type):
             res[y][x] = [final_val, final_val, final_val]
 
     return res
+
+def get_laplacian_of_gaussian(m, sigma=1.4):
+    h, w = len(m), len(m[0])
+
+    # Generare Kernel Gaussian 3x3
+    k_size = 3
+    offset = k_size // 2
+    gaussian_kernel = [[0.0] * k_size for _ in range(k_size)]
+    kernel_sum = 0.0
+
+    for i in range(-offset, offset + 1):
+        for j in range(-offset, offset + 1):
+            val = math.exp(-(i * i + j * j) / (2 * sigma * sigma))
+            gaussian_kernel[i + offset][j + offset] = val
+            kernel_sum += val
+
+    # Normalizare kernel Gaussian
+    for i in range(k_size):
+        for j in range(k_size):
+            gaussian_kernel[i][j] /= kernel_sum
+
+    # Kernel Laplace
+    laplace_kernel = [
+        [0, 1, 0],
+        [1, -4, 1],
+        [0, 1, 0]
+    ]
+
+    # Functie interna de convolutie
+    def aplica_convolutie(imagine_intrare, kernel, is_laplace=False):
+        # Cream o matrice noua complet neagra
+        res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+
+        for y in range(offset, h - offset):
+            for x in range(offset, w - offset):
+                sr, sg, sb = 0.0, 0.0, 0.0
+
+                # Aplicam matricea kernel
+                for i in range(k_size):
+                    for j in range(k_size):
+                        weight = kernel[i][j]
+                        r, g, b = imagine_intrare[y + i - offset][x + j - offset]
+                        sr += r * weight
+                        sg += g * weight
+                        sb += b * weight
+
+                if is_laplace:
+                    # La Laplace (muchiile), insumam canalele in alb-negru
+                    val = int(abs(sr + sg + sb))
+                    val = min(255, val)  # Clamping sa nu depaseasca 255
+                    res[y][x] = [val, val, val]
+                else:
+                    # La Blur (Gaussian), pastram culorile RGB intacte
+                    res[y][x] = [min(255, max(0, int(sr))),
+                                 min(255, max(0, int(sg))),
+                                 min(255, max(0, int(sb)))]
+        return res
+
+    # Aplicam secvential filtrele (prima data Blur, apoi Laplace)
+    imagine_blurata = aplica_convolutie(m, gaussian_kernel, is_laplace=False)
+    imagine_finala = aplica_convolutie(imagine_blurata, laplace_kernel, is_laplace=True)
+
+    return imagine_finala
