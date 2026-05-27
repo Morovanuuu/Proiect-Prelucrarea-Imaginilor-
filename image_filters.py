@@ -192,7 +192,7 @@ def get_moments1(m):
         for x in range(w): row.append(list(m[y][x]))
         res_moments.append(row)
 
-    for i in range(-15, 16):
+    for i in range(-15, 16): #sa vad vizual centrul
         if 0 <= xc + i < w: res_moments[yc][xc + i] = [255, 85, 85]
         if 0 <= yc + i < h: res_moments[yc + i][xc] = [255, 85, 85]
     return res_moments, xc, yc, M00, M10, M01
@@ -212,7 +212,7 @@ def get_moments2(m):
     return M20, M02, M11
 
 
-def get_covariance(m):
+def get_covariance(m): #calculez variația obiectului fața de centrul lui de masa
     """Extrage matricea de covarianta."""
     h, w = len(m), len(m[0])
     M00, M10, M01 = 0, 0, 0
@@ -273,13 +273,16 @@ def get_sobel(m):
 
     for y in range(1, h - 1):
         for x in range(1, w - 1):
+            # gx = Derivata pe X (Diferenta stanga-dreapta). Descopera liniile verticale
             gx = (intensity(x + 1, y - 1) + 2 * intensity(x + 1, y) + intensity(x + 1, y + 1)) - \
                  (intensity(x - 1, y - 1) + 2 * intensity(x - 1, y) + intensity(x - 1, y + 1))
+            # gy = Derivata pe Y (Diferenta sus-jos). Descopera liniile orizontale
             gy = (intensity(x - 1, y + 1) + 2 * intensity(x, y + 1) + intensity(x + 1, y + 1)) - \
                  (intensity(x - 1, y - 1) + 2 * intensity(x, y - 1) + intensity(x + 1, y - 1))
             mag = math.sqrt(gx ** 2 + gy ** 2)
             val = clamp(mag)
             res_sobel[y][x] = [val, val, val]
+            # Cautam muchia cea mai puternica din poza pentru a-i afla unghiul
             if mag > max_mag:
                 max_mag = mag
                 orientation_rad = math.atan2(gy, gx)
@@ -288,25 +291,28 @@ def get_sobel(m):
     return res_sobel, orientation_deg, max_mag
 
 
-def get_connected_components(m, prag=127):
+def get_connected_components(m, prag=127):#numara cate obiecte separate sunt si le da culori distincte
     """Etichetarea componentelor conexe (BFS)."""
     h, w = len(m), len(m[0])
     labels = [[0 for _ in range(w)] for _ in range(h)]
     numar_obiecte = 0
 
     def este_obiect(x, y):
+        #obiectul ca fiind pixelii inchisi la culoare
         r, g, b = m[y][x]
         intensitate = (r + g + b) // 3
         return intensitate < prag
 
     for y in range(h):
         for x in range(w):
+            # Daca gasim un pixel negru neetichetat, am gasit un obiect NOU
             if labels[y][x] == 0 and este_obiect(x, y):
                 numar_obiecte += 1
                 labels[y][x] = numar_obiecte
-                coada = deque([(x, y)])
+                coada = deque([(x, y)]) # Incepem algoritmul Fill (BFS)
                 while coada:
                     cx, cy = coada.popleft()
+                    # Verificam toti cei 8 vecini din jurul pixelului curent
                     for dy in [-1, 0, 1]:
                         for dx in [-1, 0, 1]:
                             if dx == 0 and dy == 0: continue
@@ -315,7 +321,7 @@ def get_connected_components(m, prag=127):
                                 if labels[ny][nx] == 0 and este_obiect(nx, ny):
                                     labels[ny][nx] = numar_obiecte
                                     coada.append((nx, ny))
-
+    # Generam o culoare random (RGB) pentru fiecare obiect distinct gasit
     culori_obiecte = {}
     for i in range(1, numar_obiecte + 1):
         culori_obiecte[i] = [random.randint(20, 230), random.randint(20, 230), random.randint(20, 230)]
@@ -375,7 +381,7 @@ def get_egalizare_histograma(m):
     h, w = len(m), len(m[0])
     hist = [0] * 256
     gray_m = [[0] * w for _ in range(h)]
-
+    #calculeaz histograma normala si salvam imaginea gri in memorie
     for y in range(h):
         for x in range(w):
             r, g, b = m[y][x]
@@ -392,6 +398,7 @@ def get_egalizare_histograma(m):
     total_pixels = w * h
 
     res = [[[0, 0, 0] for _ in range(w)] for _ in range(h)]
+    #aplicam formula de egalizare pe fiecare pixel
     for y in range(h):
         for x in range(w):
             nivel_vechi = gray_m[y][x]
@@ -400,14 +407,15 @@ def get_egalizare_histograma(m):
             res[y][x] = [nivel_nou, nivel_nou, nivel_nou]
 
     return res
-
-
 def _apply_morphology(m, op_type, iterations=1, prag=127):
+    #modifica grosimea formelor
     """
     Functie de baza comuna pentru operatiile morfologice.
     """
     h, w = len(m), len(m[0])
     current = [[0] * w for _ in range(h)]
+
+    # binarizez imgaingea in alb si negru
     for y in range(h):
         for x in range(w):
             r, g, b = m[y][x]
@@ -438,19 +446,23 @@ def _apply_morphology(m, op_type, iterations=1, prag=127):
 
 
 def get_dilatare(m, iteratii):
+    #ingroasa obiectele
     return _apply_morphology(m, 'dilatare', iteratii)
 
 
 def get_eroziune(m, iteratii):
+    #subtiaza obiectele
     return _apply_morphology(m, 'eroziune', iteratii)
 
 
 def get_deschidere(m, iteratii):
+    #e eroziune urmata de dilatare
     eroded = _apply_morphology(m, 'eroziune', iteratii)
     return _apply_morphology(eroded, 'dilatare', iteratii)
 
 
 def get_inchidere(m, iteratii):
+    #e dilatare urmata de eroziune
     dilated = _apply_morphology(m, 'dilatare', iteratii)
     return _apply_morphology(dilated, 'eroziune', iteratii)
 
