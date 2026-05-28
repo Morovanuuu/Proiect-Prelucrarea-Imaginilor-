@@ -79,7 +79,9 @@ def get_ycbcr(m):
             Y = 0.299 * r + 0.587 * g + 0.114 * b
             Cb = -0.1687 * r - 0.3313 * g + 0.498 * b + 128
             Cr = 0.498 * r - 0.4187 * g - 0.0813 * b + 128
+            #ma asigur ca valorile nu depasesc  0-255
             val_y, val_cb, val_cr = clamp(Y), clamp(Cb), clamp(Cr)
+            #le salvez ca triplete ca sa pot sa le desenez ca imagini alb negru
             r_y.append([val_y, val_y, val_y])
             r_cb.append([val_cb, val_cb, val_cb])
             r_cr.append([val_cr, val_cr, val_cr])
@@ -142,7 +144,7 @@ def get_invers(m):
 
 
 def get_binarizare(m, prag=127):
-    """Binarizarea imaginii (Thresholding). Alb pur sau negru pur."""
+    """ Alb pur sau negru pur."""
     h, w = len(m), len(m[0])
     res_bin = []
     for y in range(h):
@@ -158,12 +160,14 @@ def get_binarizare(m, prag=127):
 def get_histogram(m):
     """Calculeaza histograma imaginii (0-255)."""
     h, w = len(m), len(m[0])
-    hist = [0] * 256
+    hist = [0] * 256 #cream lista
     for y in range(h):
         for x in range(w):
             r, g, b = m[y][x]
+            #aflam nuanta de gri
             hist[(r + g + b) // 3] += 1
     max_val = max(hist) if max(hist) > 0 else 1
+    #cream suprafata
     res_hist = [[[40, 42, 54] for _ in range(256)] for _ in range(256)]
     for x in range(256):
         bar_height = int((hist[x] / max_val) * 250)
@@ -206,8 +210,11 @@ def get_moments2(m):
         for x in range(w):
             r, g, b = m[y][x]
             I = 255 - ((r + g + b) // 3)
+            #se distribuie piexelii pe axa Ox
             M20 += (x ** 2) * I
+            #se distribuie  piexeli pe axa Oy
             M02 += (y ** 2) * I
+            #pixeli pe diagonala
             M11 += x * y * I
     return M20, M02, M11
 
@@ -215,7 +222,7 @@ def get_moments2(m):
 def get_covariance(m): #calculez variația obiectului fața de centrul lui de masa
     """Extrage matricea de covarianta."""
     h, w = len(m), len(m[0])
-    M00, M10, M01 = 0, 0, 0
+    M00, M10, M01 = 0, 0, 0 #gasim centrul de masa
     for y in range(h):
         for x in range(w):
             gray = 255 - ((m[y][x][0] + m[y][x][1] + m[y][x][2]) // 3)
@@ -223,9 +230,9 @@ def get_covariance(m): #calculez variația obiectului fața de centrul lui de ma
             M10 += x * gray;
             M01 += y * gray
     if M00 == 0: return None, None, None
-
+    #coordonatele centrului de greutate
     xc, yc = M10 / M00, M01 / M00
-    mu20, mu02, mu11 = 0, 0, 0
+    mu20, mu02, mu11 = 0, 0, 0 #calculam momentele centrale
     for y in range(h):
         for x in range(w):
             gray = 255 - ((m[y][x][0] + m[y][x][1] + m[y][x][2]) // 3)
@@ -239,16 +246,21 @@ def get_projections(m):
     """Calculeaza proiectiile de intensitate pe axa orizontala si verticala."""
     h, w = len(m), len(m[0])
     proj_h, proj_v = [0] * h, [0] * w
+    #calculul proiectiilor
     for y in range(h):
         for x in range(w):
+            #inversam culorile
             gray = 255 - ((m[y][x][0] + m[y][x][1] + m[y][x][2]) // 3)
+            #apoi adunam valoarea pixelului la x si y
             proj_h[y] += gray
             proj_v[x] += gray
-
+    #desenez graficul
     max_h = max(proj_h) if max(proj_h) > 0 else 1
+    #panza pentru graficul orizontal
     res_h = [[[40, 42, 54] for _ in range(200)] for _ in range(h)]
     for y in range(h):
         bar_len = int((proj_h[y] / max_h) * 200)
+        #construim bara de la stanga la dreapta
         for x in range(bar_len): res_h[y][x] = [139, 233, 253]
 
     max_v = max(proj_v) if max(proj_v) > 0 else 1
@@ -342,16 +354,18 @@ def get_isolated_object(m, target_label, prag=127):
     numar_obiecte = 0
 
     def este_obiect(x, y):
+        #consideram obiectele ca fiind pixeli intunecati
         r, g, b = m[y][x]
         intensitate = (r + g + b) // 3
         return intensitate < prag
-
+    #am facut etichetarea
     for y in range(h):
         for x in range(w):
             if labels[y][x] == 0 and este_obiect(x, y):
                 numar_obiecte += 1
                 labels[y][x] = numar_obiecte
                 coada = deque([(x, y)])
+                #algoritmul de umplere, adica gaseste toate bucatiile obiectului
                 while coada:
                     cx, cy = coada.popleft()
                     for dy in [-1, 0, 1]:
@@ -388,7 +402,7 @@ def get_egalizare_histograma(m):
             gray = (r + g + b) // 3
             gray_m[y][x] = gray
             hist[gray] += 1
-
+    #histograma cumulativa
     hc = [0] * 256
     hc[0] = hist[0]
     for i in range(1, 256):
@@ -560,13 +574,13 @@ def get_accentuare(m):
     return res
 
 
-#  Transformata Fourier (Numpy)
+#  Transformata Fourier
 
 def get_fourier_transform(m):
 
     h, w = len(m), len(m[0])
 
-    # 1. Convertim imaginea intr-o matrice 2D NumPy, cu numere reale
+    # 1. Convertim imaginea intr-o matrice 2D, cu numere reale
     # Transformata Fourier se aplica pe imagini alb-negru (grayscale)
     gray = np.zeros((h, w), dtype=np.float64)
     for y in range(h):
@@ -575,7 +589,7 @@ def get_fourier_transform(m):
             # Formula standard de conversie in tonuri de gri
             gray[y][x] = 0.299 * r + 0.587 * g + 0.114 * b
 
-    # 2. Aplicam Transformata Fourier Rapida 2D (FFT2) din Numpy
+    # 2. Aplicam Transformata Fourier Rapida 2D (FFT2)
     f = np.fft.fft2(gray)
 
     # 3. Mutam componenta de frecventa zero (cea mai luminoasa, numita DC)
